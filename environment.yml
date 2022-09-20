@@ -1,0 +1,8 @@
+name: ulsdpb
+# Environment to replicate estimation results for the ULSDPB-paper.
+dependencies:
+  - python=3.8.5
+  - numpy=1.19.2
+  - scipy=1.5.0
+  - numba=0.50.1
+  - pip=20.2.4
