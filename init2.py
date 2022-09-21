@@ -21,12 +21,9 @@ import lda
 import lda.utils
 
 # Own modules
-import settings
+import set2
 
-# assert lda.__version__ == '2.0.0', 'lda package should be 2.0.0'
-from pyspark.sql import SparkSession
-from pyspark import SparkContext
-spark = SparkSession.builder.master("local[2]").appName("test").getOrCreate()
+assert lda.__version__ == '2.0.0', 'lda package should be 2.0.0'
 
 def _fit_alt(
         lda_obj,
@@ -35,12 +32,9 @@ def _fit_alt(
         n_burn_in,
 ):
     """Adaptation of the _fit method for an LDA object.
-
     The change is that the MCMC draws are averaged and saved, instead of just
     storing the final MCMC draw. The first n_burn_in samples are skipped.
-
     The average draw is stored as a J x M CSV of floats.
-
     Parameters
         lda_obj: The LDA object.
         X: Data as expected by the _fit method of the LDA object.
@@ -96,9 +90,14 @@ def _fit_alt(
                 np.sum(average_c_jm),
                 np.sum(X)
             )
-            rdd = spark.sparkContext.parallelize(average_c_jm.tolist())
-            df = rdd.toDF()
-            df.write.csv("hdfs://master:9000/initial_c_jm.csv")
+
+            np.savetxt(
+                os.path.join(output_folder, 'initial_c_jm.csv'),
+                X=average_c_jm,
+                fmt='%.18f',
+                delimiter=','
+            )
+
         # ULSDPB ADDITION: END
 
     ll = lda_obj.loglikelihood()
@@ -129,7 +128,7 @@ SEED = parser_args.S
 N_ITER = parser_args.N_ITER
 N_BURN = parser_args.N_BURN
 
-# assert N_ITER > N_BURN
+assert N_ITER > N_BURN
 
 print('Pseudocounts initialization based on Collapsed-Gibbs LDA')
 print('Number of motivations:', M)
@@ -137,14 +136,13 @@ print('Seed:', SEED)
 print('Total number of iterations:', N_ITER)
 print('Burn-in iterations to be discarded:', N_BURN)
 
-M_OUTPUT_FOLDER = os.path.join(settings.OUTPUT_FOLDER, 'M' + str(M))
+M_OUTPUT_FOLDER = os.path.join(set2.OUTPUT_FOLDER, 'M' + str(M))
 if not os.path.exists(M_OUTPUT_FOLDER):
     os.makedirs(M_OUTPUT_FOLDER)
 
 # Load purchase data
-#y = np.loadtxt(settings.Y_CSV, dtype=int, delimiter=',')
-y = spark.read.csv("hdfs://master:9000/ulsdpb/data/y.csv").cache().collect()
-y = np.array(y)
+y = np.loadtxt(set2.Y_CSV, dtype=int, delimiter=',')
+
 # Get dimensions
 total_baskets = len(np.unique(y[:, 1]))
 dim_j = len(np.unique(y[:, 2]))
@@ -154,7 +152,7 @@ purchases = np.zeros((total_baskets, dim_j), dtype=np.int64)
 
 ib = 0
 for i, ib, y_ibn in y:
-    purchases[int(ib), int(y_ibn)] += 1
+    purchases[ib, y_ibn] += 1
 
 # Create LDA object
 lda_object = lda.LDA(
